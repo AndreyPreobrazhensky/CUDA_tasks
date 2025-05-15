@@ -58,7 +58,7 @@
  
  Iterations      =                 20
  
- Time in seconds =               4.07
+ Time in seconds =               3.84
  
  Operation type  =     double precision
  
