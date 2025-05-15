@@ -1,4 +1,4 @@
-Для компиляции jac3d.cu используйте nvcc jac3d.cu -o jacg.o
+Для компиляции jac3d.cu используйте nvcc jac3d.cu -o jacg.o -O3
 
 Для компиляции программы для CPU - jac3d.c используйте gcc -fopenmp jac3d.c -o jacc
 
@@ -58,7 +58,7 @@
  
  Iterations      =                 20
  
- Time in seconds =               3.84
+ Time in seconds =               3.52
  
  Operation type  =     double precision
  
