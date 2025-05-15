@@ -52,9 +52,7 @@ __global__ void kernel(dtype *A, dtype *B)
 
 __global__ void diff_swap(dtype *A, dtype *B)
 {
-        __shared__ dtype s[16 * 4 * 2];
-
-        int co = threadIdx.x + threadIdx.y * blockDim.x + threadIdx.z * blockDim.y * blockDim.x;
+        dtype co;
 
         int i = blockIdx.z * blockDim.z + threadIdx.z;
         int j = blockIdx.y * blockDim.y + threadIdx.y;
@@ -63,12 +61,13 @@ __global__ void diff_swap(dtype *A, dtype *B)
         if (i >= 0 && i < L)
                 if (j >= 0 && j < L)
                         if (k >= 0 && k < L){
-                                s[co] = fabs(A[(i * L + j) * L + k] - B[(i * L + j) * L + k]);
+                                co = fabs(A[(i * L + j) * L + k] - B[(i * L + j) * L + k]);
                                 A[(i * L + j) * L + k] = B[(i * L + j) * L + k];
-                                B[(i * L + j) * L + k] = s[co];
+                                B[(i * L + j) * L + k] = co;
 
                         }
 }
+
 
 __global__ void reduce(dtype *A, dtype *b, int size){
         __shared__ dtype s[16 * 4 * 2];
@@ -113,18 +112,18 @@ int main(){
 
         size_t task_sz = L * L * L * sizeof(dtype);
         size_t size_res = ((L + 15) / 16) * ((L + 3) / 4) * ((L + 3) / 4) * sizeof(dtype);
-        size_t size_res_2 = (((L + 15) / 16 + 15) / 16) * (((L + 3) / 4 + 3) / 4) * (((L + 3) / 4 + 3) / 4) * sizeof(dtype);
+        //size_t size_res_2 = (((L + 15) / 16 + 15) / 16) * (((L + 3) / 4 + 3) / 4) * (((L + 3) / 4 + 3) / 4) * sizeof(dtype);
         //dtype *A = (dtype*)malloc(task_sz);
         dtype *B = (dtype*)malloc(task_sz);
         dtype *D;
-        dtype *res_max = (dtype*)malloc(size_res_2);
-        dtype *A_dev, *b_res, *b_res_2;
+        dtype *res_max = (dtype*)malloc(size_res);
+        dtype *A_dev, *b_res;
 
         SAFE_CALL(cudaMalloc((void**)& A_dev, task_sz));
         //SAFE_CALL(cudaMalloc((void**)& B_dev, task_sz));
         SAFE_CALL(cudaMalloc((void**)& b_res, size_res));
         SAFE_CALL(cudaMalloc((void**)& D, task_sz));
-        SAFE_CALL(cudaMalloc((void**)& b_res_2, size_res_2));
+        //SAFE_CALL(cudaMalloc((void**)& b_res_2, size_res_2));
                 
 	cudaEvent_t start, stop;
 
@@ -149,7 +148,7 @@ int main(){
 
         SAFE_CALL(cudaMemcpy(D, B, task_sz, cudaMemcpyHostToDevice));
         dim3 thread(16, 4, 2), block((L + 15) / 16, (L + 3) / 4, (L + 3) / 4);
-        dim3 block_new(((L + 15) / 16 + 15) / 16, ((L + 3) / 4 + 3) / 4, ((L + 3) / 4 + 3) / 4);
+        //dim3 block_new(((L + 15) / 16 + 15) / 16, ((L + 3) / 4 + 3) / 4, ((L + 3) / 4 + 3) / 4);
         dim3 block_base((L + 15) / 16, (L + 3) / 4, (L + 1) / 2);
         //dim3 thread_r(128, 1, 1), block_r((L + 127) / 128, L, L);
         /* iteration loop */
@@ -158,10 +157,10 @@ int main(){
                 eps = 0;
                 diff_swap <<< block_base, thread>>> (A_dev, D);
                 reduce <<<block, thread>>> (D, b_res, L * L * L);
-                reduce <<<block_new, thread>>> (b_res, b_res_2, size_res / sizeof(dtype));
-                SAFE_CALL(cudaMemcpy(res_max, b_res_2, size_res_2, cudaMemcpyDeviceToHost));
+                //reduce <<<block_new, thread>>> (b_res, b_res_2, size_res / sizeof(dtype));
+                SAFE_CALL(cudaMemcpy(res_max, b_res, size_res, cudaMemcpyDeviceToHost));
                 kernel <<< block_base, thread >>> (A_dev, D);
-                for (int j = 0; j < size_res_2 / sizeof(dtype); j++){
+                for (int j = 0; j < size_res / sizeof(dtype); j++){
                         eps = eps >= res_max[j] ? eps : res_max[j];
                         //printf("res_max[j]: %f\n", res_max[j]);
                 }
